@@ -1,7 +1,8 @@
 // Variables globales
 let isPlaying = false;
 let currentSlide = 0;
-const totalSlides = 6;
+// Se cuenta solo desde el HTML: basta con agregar o quitar fotos del carrusel
+const totalSlides = document.querySelectorAll('.carousel-item').length || 1;
 let musicStarted = false;       // la música ya arrancó (segundo 5 del video)
 let musicUnlocked = false;      // el audio quedó habilitado con el toque (iOS)
 
