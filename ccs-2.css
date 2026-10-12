@@ -1701,3 +1701,50 @@ body.intro-done .intro-sparkles { display: none; }
 @media (prefers-reduced-motion: reduce) {
     .reveal { opacity: 1 !important; translate: none !important; transition: none !important; }
 }
+
+/* ---------------------------------------------------------
+   Portada: texto en azul marino sobre un degradado color papel
+   (como la tarjeta impresa), en vez de blanco sobre sombra oscura
+   --------------------------------------------------------- */
+.hero-shade {
+    background:
+        linear-gradient(to top,
+            hsl(var(--paper) / 0.97) 0%,
+            hsl(var(--paper) / 0.9) 26%,
+            hsl(var(--paper) / 0.55) 44%,
+            hsl(var(--paper) / 0) 62%),
+        linear-gradient(to bottom, rgba(30, 24, 18, 0.22) 0%, rgba(30, 24, 18, 0) 16%);
+}
+.hero-text { color: hsl(var(--navy)); }
+.hero-kicker {
+    font-family: var(--font-display);
+    color: hsl(var(--navy));
+    opacity: 1;
+}
+.hero-names {
+    color: hsl(var(--navy));
+    text-shadow: 0 1px 0 hsl(var(--paper) / 0.8);
+}
+.hero-amp { color: hsl(var(--accent)); }
+.hero-date {
+    color: hsl(var(--navy));
+    opacity: 1;
+    font-weight: 500;
+}
+.hero-scroll span { background: hsl(var(--navy) / 0.6); }
+.hero-scroll { background: hsl(var(--navy) / 0.2); }
+
+/* Portada: solo los nombres en azul; frase y fecha en dorado viejo */
+.hero-kicker,
+.hero-date { color: hsl(var(--accent-dark)); }
+.hero-kicker { text-wrap: balance; line-height: 1.35; max-width: 22rem; margin-left: auto; margin-right: auto; margin-bottom: 0.4rem; }
+
+/* Frase de la portada más visible */
+.hero-kicker {
+    font-size: clamp(1.4rem, 5.6vw, 1.85rem);
+    font-weight: 600;
+    color: hsl(40 62% 30%);
+    text-shadow: 0 0 14px hsl(var(--paper)), 0 1px 0 hsl(var(--paper) / 0.9);
+    max-width: 24rem;
+    margin-bottom: 0.55rem;
+}
