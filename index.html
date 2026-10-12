@@ -9,26 +9,26 @@
     <title>Rosanna & Heriberto - Invitación de Boda</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" as="image" href="sobre-poster.jpg">
     <link rel="preload" as="image" href="foto0.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="ccs-2.css?v=20261012-05">
+    <link rel="stylesheet" href="ccs-2.css?v=20261012-09">
 </head>
-<body>
-    <!-- Modal de Bienvenida -->
-    <div id="welcomeModal" class="modal-overlay">
-        <div class="modal-content welcome-hero">
-            <img class="flor flor-welcome" src="flor-centro.webp" alt="" aria-hidden="true">
-            <div class="welcome-date">13 · 12 · 2026</div>
-            <h1 class="welcome-heading">Bienvenidos a la invitación de<br class="welcome-break" />
-                <span class="names">Rosanna</span> <span class="ampersand">&</span> <span class="names">Heriberto</span>
-            </h1>
-            <p class="welcome-subtitle">La música de fondo es parte de la experiencia</p>
-            <div class="modal-buttons">
-                <button id="enterWithMusic" class="btn-wedding">Ingresar con música</button>
-                <button id="enterWithoutMusic" class="btn-wedding btn-outline">Ingresar sin música</button>
-            </div>
+<body class="intro-active">
+    <!-- Intro: sobre animado. Se toca el sello para abrir; al terminar entra a la invitación -->
+    <div id="intro" class="intro" role="button" tabindex="0" aria-label="Toca para abrir la invitación">
+        <video id="introVideo" class="intro-video" src="sobre.mp4" poster="sobre-poster.jpg"
+               playsinline webkit-playsinline preload="auto" disablepictureinpicture
+               controlslist="nodownload nofullscreen noremoteplayback"></video>
+        <div class="intro-seal-glow" aria-hidden="true"></div>
+        <div class="intro-hint" aria-hidden="true">
+            <span class="intro-hint-names">Rosanna &amp; Heriberto</span>
+            <span class="intro-hint-text">Toca el sello para abrir</span>
         </div>
     </div>
+    <!-- Velo de luz para la transición del video a la invitación -->
+    <div id="introVeil" class="intro-veil" aria-hidden="true"></div>
+    <canvas id="introSparkles" class="intro-sparkles" aria-hidden="true"></canvas>
 
     <!-- Reproductor de música -->
     <div id="musicPlayer" class="music-player" style="display: none;">
@@ -38,7 +38,7 @@
                 <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.08"></path>
             </svg>
         </button>
-        <audio id="bgMusic" src="musica.mp3" preload="auto" loop playsinline></audio>
+        <audio id="bgMusic" src="musica.mp3" preload="auto" loop></audio>
     </div>
 
     <main>
@@ -339,6 +339,6 @@
         <div id="toastContent"></div>
     </div>
 
-    <script src="java2.js?v=20261012-05"></script>
+    <script src="java2.js?v=20261012-09"></script>
 </body>
 </html>

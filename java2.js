@@ -2,13 +2,18 @@
 let isPlaying = false;
 let currentSlide = 0;
 const totalSlides = 6;
-let enableMusic = false;
+let musicStarted = false;       // la música ya arrancó (segundo 5 del video)
+let musicUnlocked = false;      // el audio quedó habilitado con el toque (iOS)
+
+// Segundo del video en el que arranca la música
+const MUSIC_START_AT = 5;
 
 // Inicializar cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
     initializeCountdown();
     initializeCarousel();
-    initializeModal();
+    initializeIntro();
+    initializeMusicControls();
     initializeParallax();
     initializeGuestGreeting();
     initializeLayers(); // después del saludo: depende de si la sección de invitados se muestra
@@ -93,63 +98,252 @@ function initializeLayers() {
     }
 }
 
-// Modal de bienvenida + música de fondo (archivo local musica.mp3).
-// El botón "Ingresar con música" es el detonador: play() se llama dentro
-// del mismo toque del usuario, que es lo que exigen iOS Safari y Chrome
-// para permitir audio.
-function initializeModal() {
-    const enterWithMusic = document.getElementById('enterWithMusic');
-    const enterWithoutMusic = document.getElementById('enterWithoutMusic');
-    const modal = document.getElementById('welcomeModal');
-    const audio = document.getElementById('bgMusic');
-    const playerBox = document.getElementById('musicPlayer');
-    const musicToggle = document.getElementById('musicToggle');
+// =========================================================
+// Intro: sobre animado
+// - Se toca para abrir (el toque es el gesto que permite sonido en iOS/Android)
+// - En el segundo 5 del video arranca la música
+// - Al terminar el video entra directo a la invitación con una transición
+// =========================================================
+function initializeIntro() {
+    const intro = document.getElementById('intro');
+    const video = document.getElementById('introVideo');
+    if (!intro || !video) return;
 
-    if (audio) {
-        audio.volume = 0.7;
-        audio.addEventListener('play', () => { isPlaying = true; updateMusicIcon(); });
-        audio.addEventListener('pause', () => { isPlaying = false; updateMusicIcon(); });
-    }
+    let started = false;
+    let finished = false;
 
-    // Safari (iPhone/Mac) solo permite sonido si play() se llama en el
-    // mismo instante del toque: por eso va PRIMERO, antes de tocar el DOM.
-    enterWithMusic.addEventListener('click', function() {
-        playMusic();
-        enableMusic = true;
-        modal.style.display = 'none';
-        playerBox.style.display = 'block';
+    const start = () => {
+        if (started) return;
+        started = true;
+        intro.classList.add('is-playing');
+        intro.setAttribute('aria-label', 'Abriendo la invitación');
+
+        // Habilitar la música DENTRO del toque (requisito de iOS Safari)
+        unlockMusic();
+
+        video.muted = false;
+        const p = video.play();
+        if (p && p.catch) {
+            p.catch(() => {
+                // Si el video no se puede reproducir con sonido, se intenta en silencio;
+                // si tampoco, se entra directo a la invitación con la música.
+                video.muted = true;
+                video.play().catch(() => { startMusic(); finish(); });
+            });
+        }
+    };
+
+    const finish = () => {
+        if (finished) return;
+        finished = true;
+        startMusic(); // por si el video duró menos de 5 s o falló
+        revealInvitation();
+    };
+
+    intro.addEventListener('click', start);
+    intro.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); start(); }
     });
 
-    enterWithoutMusic.addEventListener('click', function() {
-        enableMusic = false;
-        modal.style.display = 'none';
-        // El botón flotante queda disponible por si luego quieren escucharla
-        playerBox.style.display = 'block';
-        if (audio) audio.pause();
-        updateMusicIcon();
+    video.addEventListener('timeupdate', () => {
+        if (!musicStarted && video.currentTime >= MUSIC_START_AT) startMusic();
     });
+    video.addEventListener('ended', finish);
+    video.addEventListener('error', () => { if (started) finish(); });
 
-    musicToggle.addEventListener('click', toggleMusic);
+    // Seguro: si el video se queda trabado, entrar igual
+    video.addEventListener('playing', () => {
+        const ms = ((video.duration || 8) - video.currentTime + 2.5) * 1000;
+        clearTimeout(video._safety);
+        video._safety = setTimeout(finish, ms);
+    });
 }
 
-function playMusic() {
-    const audio = document.getElementById('bgMusic');
-    if (!audio) return;
-    audio.muted = false;
-    const p = audio.play();
-    if (p && typeof p.catch === 'function') {
+// Transición elegante: el destello final del video se convierte en un velo de
+// luz cálida con destellos dorados, y la portada "se revela" desde la luz.
+function revealInvitation() {
+    const body = document.body;
+    window.scrollTo(0, 0);
+    body.classList.remove('intro-active');
+    // forzar reflow para que la animación arranque limpia
+    void body.offsetWidth;
+    body.classList.add('is-revealing');
+    playSparkles(3200);
+
+    const musicPlayer = document.getElementById('musicPlayer');
+    setTimeout(() => {
+        musicPlayer.style.display = 'block';
+        musicPlayer.classList.add('is-visible');
+    }, 2400);
+
+    setTimeout(() => {
+        body.classList.add('intro-done');
+        const video = document.getElementById('introVideo');
+        if (video) { video.pause(); video.removeAttribute('src'); video.load(); }
+    }, 3600);
+}
+
+// Destellos dorados que flotan durante la transición (canvas liviano)
+function playSparkles(duration) {
+    const canvas = document.getElementById('introSparkles');
+    if (!canvas || !canvas.getContext) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const ctx = canvas.getContext('2d');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    ctx.scale(dpr, dpr);
+
+    const count = Math.round(Math.min(70, Math.max(35, (w * h) / 12000)));
+    const parts = Array.from({ length: count }, () => {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 0.25 + Math.random() * 1.1;
+        return {
+            x: w / 2 + (Math.random() - 0.5) * w * 0.35,
+            y: h * 0.46 + (Math.random() - 0.5) * h * 0.25,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 0.5,
+            r: 0.8 + Math.random() * 2.2,
+            delay: Math.random() * 600,
+            life: 1400 + Math.random() * 1600,
+            hue: 38 + Math.random() * 10
+        };
+    });
+
+    const t0 = performance.now();
+    const frame = (now) => {
+        const t = now - t0;
+        ctx.clearRect(0, 0, w, h);
+        parts.forEach(p => {
+            const age = t - p.delay;
+            if (age < 0 || age > p.life) return;
+            const k = age / p.life;
+            const alpha = Math.sin(Math.PI * k) * 0.9;
+            const x = p.x + p.vx * age * 0.06;
+            const y = p.y + p.vy * age * 0.06;
+            const glow = ctx.createRadialGradient(x, y, 0, x, y, p.r * 4);
+            glow.addColorStop(0, `hsla(${p.hue}, 80%, 85%, ${alpha})`);
+            glow.addColorStop(0.4, `hsla(${p.hue}, 70%, 60%, ${alpha * 0.45})`);
+            glow.addColorStop(1, `hsla(${p.hue}, 70%, 55%, 0)`);
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(x, y, p.r * 4, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        if (t < duration) requestAnimationFrame(frame);
+        else ctx.clearRect(0, 0, w, h);
+    };
+    requestAnimationFrame(frame);
+}
+
+// =========================================================
+// Música (archivo propio, ya no YouTube)
+// =========================================================
+function getMusic() { return document.getElementById('bgMusic'); }
+
+// Se llama dentro del toque: deja el audio "autorizado" para que luego,
+// en el segundo 5, pueda sonar sin otro toque (iOS lo exige).
+function unlockMusic() {
+    const music = getMusic();
+    if (!music || musicUnlocked) return;
+    musicUnlocked = true;
+    // Safari solo da permiso de SONIDO si play() se llama CON sonido dentro
+    // del toque. Un play() en silencio (muted) no cuenta: por eso antes la
+    // música no sonaba en el segundo 5. Se da play con sonido y se pausa al
+    // instante; el elemento queda autorizado para sonar después sin otro toque.
+    music.muted = false;
+    try {
+        const p = music.play();
+        music.pause();
+        if (p && p.catch) p.catch(() => {});
+    } catch (e) { /* sin audio */ }
+    try { music.currentTime = 0; } catch (e) {}
+}
+
+function startMusic() {
+    const music = getMusic();
+    if (!music || musicStarted) return;
+    musicStarted = true;
+    try { music.currentTime = 0; } catch (e) {}
+    music.muted = false;
+    fadeInVolume(music, 1800);
+    const p = music.play();
+    isPlaying = true;
+    updateMusicIcon();
+    if (p && p.catch) {
         p.catch(() => {
+            // El navegador no dejó sonar: se muestra el botón de música
+            // de inmediato para que el invitado la active con un toque.
             isPlaying = false;
             updateMusicIcon();
-            showToast('Música de fondo', 'Toque el ícono de música, arriba a la derecha, para escucharla.');
+            showMusicHint();
         });
     }
 }
 
+function showMusicHint() {
+    const box = document.getElementById('musicPlayer');
+    if (!box) return;
+    // Mientras corre el video del sobre el aviso quedaría tapado: esperar
+    // a que la invitación esté a la vista.
+    if (!document.body.classList.contains('intro-done')) {
+        setTimeout(showMusicHint, 400);
+        return;
+    }
+    box.style.display = 'block';
+    box.classList.add('is-visible', 'needs-tap');
+    showToast('Música de fondo', 'Toque el ícono de música, arriba a la derecha, para escuchar la canción.');
+}
+
+// Subida de volumen suave (en iPhone el volumen lo maneja el sistema y se ignora)
+function fadeInVolume(el, ms) {
+    try {
+        el.volume = 0;
+        const t0 = performance.now();
+        const step = (now) => {
+            const k = Math.min(1, (now - t0) / ms);
+            el.volume = k;
+            if (k < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+    } catch (e) { /* sin control de volumen */ }
+}
+
+function initializeMusicControls() {
+    const music = getMusic();
+    const toggle = document.getElementById('musicToggle');
+    if (!music || !toggle) return;
+
+    toggle.addEventListener('click', toggleMusic);
+    music.addEventListener('play', () => { if (!music.muted) { isPlaying = true; updateMusicIcon(); } });
+    music.addEventListener('pause', () => { isPlaying = false; updateMusicIcon(); });
+
+    // Pausar si el invitado sale de la página y retomar al volver
+    let resumeOnReturn = false;
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            resumeOnReturn = isPlaying;
+            if (isPlaying) music.pause();
+        } else if (resumeOnReturn) {
+            music.play().catch(() => {});
+        }
+    });
+}
+
 function toggleMusic() {
-    const audio = document.getElementById('bgMusic');
-    if (!audio) return;
-    if (audio.paused) playMusic(); else audio.pause();
+    const music = getMusic();
+    if (!music) return;
+    const box = document.getElementById('musicPlayer');
+    if (box) box.classList.remove('needs-tap');
+    if (isPlaying) {
+        music.pause();
+    } else {
+        musicStarted = true;
+        music.muted = false;
+        music.volume = 1;
+        music.play().catch(() => {});
+    }
 }
 
 function updateMusicIcon() {
