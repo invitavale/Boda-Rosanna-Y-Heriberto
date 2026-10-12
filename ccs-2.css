@@ -1748,3 +1748,101 @@ body.intro-done .intro-sparkles { display: none; }
     max-width: 24rem;
     margin-bottom: 0.55rem;
 }
+
+/* ---------------------------------------------------------
+   Portada sin "zoom": la foto se ve completa (sin recortar ni
+   agrandar de más) y el espacio sobrante se rellena con la misma
+   foto difuminada detrás.
+   --------------------------------------------------------- */
+.hero-bg { background: none; overflow: hidden; }
+.hero-bg::before,
+.hero-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url('foto0.jpg');
+    background-repeat: no-repeat;
+}
+/* fondo difuminado que llena la pantalla */
+.hero-bg::before {
+    inset: -40px;
+    background-size: cover;
+    background-position: center;
+    filter: blur(26px) brightness(1.04) saturate(0.9);
+}
+/* foto nítida y completa */
+.hero-bg::after {
+    background-size: contain;
+    background-position: center 60px;   /* 60px = colchón del parallax */
+}
+/* Celular: la foto arriba a todo el ancho; el texto queda debajo */
+@media (max-aspect-ratio: 4/5) {
+    .hero-bg::after { background-size: 100% auto; background-position: center 60px; }
+}
+/* La foto nítida ocupa exactamente su tamaño y se funde con el fondo en los bordes */
+.hero-bg::after {
+    inset: auto;
+    top: 60px;
+    bottom: 0;
+    left: 50%;
+    translate: -50% 0;
+    height: auto;
+    aspect-ratio: 1086 / 1448;
+    max-width: 100%;
+    background-size: 100% 100%;
+    background-position: center top;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 7%, #000 93%, transparent 100%);
+            mask-image: linear-gradient(to right, transparent 0, #000 7%, #000 93%, transparent 100%);
+}
+@media (max-aspect-ratio: 4/5) {
+    .hero-bg::after {
+        bottom: auto;
+        left: 0;
+        right: 0;
+        translate: none;
+        width: 100%;
+        background-size: 100% 100%;
+        -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 70%, transparent 100%);
+                mask-image: linear-gradient(to bottom, #000 0, #000 70%, transparent 100%);
+    }
+}
+
+/* ---------------------------------------------------------
+   Carrusel con marco tipo foto impresa: borde fino arriba y a
+   los lados, más ancho abajo. El marco se ajusta al tamaño de
+   cada foto (vertical u horizontal), así todas se ven iguales.
+   --------------------------------------------------------- */
+.carousel-track-container {
+    border-radius: 0;
+    box-shadow: none;
+}
+.carousel-item {
+    background: transparent;
+    padding: 14px 0 26px;          /* espacio para que se vea la sombra */
+    height: 600px;
+}
+.carousel-item img {
+    box-sizing: border-box;
+    width: auto;
+    height: auto;
+    max-width: calc(100% - 3rem);
+    max-height: 100%;
+    object-fit: contain;
+    padding: 12px 12px 46px;        /* lados y arriba finos, abajo ancho */
+    background: #fffdf9;
+    border: 1px solid hsl(var(--accent) / 0.25);
+    border-radius: 3px;
+    box-shadow:
+        0 1px 2px hsl(var(--ink) / 0.08),
+        0 14px 30px -14px hsl(var(--ink) / 0.45);
+}
+@media (max-width: 768px) {
+    .carousel-item { height: 470px; }
+}
+@media (max-width: 480px) {
+    .carousel-item { height: 430px; padding: 10px 0 22px; }
+    .carousel-item img {
+        max-width: calc(100% - 1.5rem);
+        padding: 8px 8px 34px;
+    }
+}
