@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeParallax();
     initializeGuestGreeting();
     initializeLayers(); // después del saludo: depende de si la sección de invitados se muestra
+    initializeScrollReveal();
     initializeGifts();
     initializeRsvp();
 });
@@ -862,4 +863,58 @@ function initializeRsvp() {
     if (invitados.length === 1) msg = `Confirmo mi asistencia a la boda de Rosanna y Heriberto. ${invitados[0]}.`;
 
     link.href = `https://wa.me/${RSVP_WHATSAPP}?text=${encodeURIComponent(msg)}`;
+}
+
+/* =========================================================
+   Aparición suave al hacer scroll
+   Cada bloque sube unos píxeles y aparece al entrar en pantalla;
+   los elementos hermanos (p. ej. las partes de una tarjeta) entran
+   uno tras otro con un pequeño desfase. Solo ocurre una vez.
+   ========================================================= */
+function initializeScrollReveal() {
+    if (!('IntersectionObserver' in window)) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const selectors = [
+        '.layers .section-title',
+        '.layers .section-subtitle',
+        '.layers .flor-top',
+        '.countdown-container',
+        '.event-card > *',
+        '.gallery-container > .icon-art',
+        '.carousel-container',
+        '.carousel-counter',
+        '.party-card',
+        '.gifts-container > .icon-art',
+        '.gifts-container > .btn-wedding',
+        '.rsvp-deadline',
+        '.icon-whatsapp',
+        '.btn-rsvp',
+        '.layers .flor-garland',
+        '.layers .flor-corner',
+        '.guest-section .layer-inner > *',
+        '.footer-content > *'
+    ];
+    const items = Array.from(document.querySelectorAll(selectors.join(',')));
+    if (!items.length) return;
+
+    // Desfase entre hermanos: 0, 120, 240... (máx. 5 pasos)
+    const counters = new Map();
+    items.forEach(el => {
+        const parent = el.parentElement;
+        const n = counters.get(parent) || 0;
+        counters.set(parent, n + 1);
+        el.style.setProperty('--reveal-delay', Math.min(n, 5) * 120 + 'ms');
+        el.classList.add('reveal');
+    });
+
+    const io = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            entry.target.classList.add('is-visible');
+            io.unobserve(entry.target);
+        });
+    }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+
+    items.forEach(el => io.observe(el));
 }
