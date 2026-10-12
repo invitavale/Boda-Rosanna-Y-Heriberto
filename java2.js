@@ -3,11 +3,7 @@ let isPlaying = false;
 let currentSlide = 0;
 // Se cuenta solo desde el HTML: basta con agregar o quitar fotos del carrusel
 const totalSlides = document.querySelectorAll('.carousel-item').length || 1;
-let musicStarted = false;       // la música ya arrancó (segundo 5 del video)
-let musicUnlocked = false;      // el audio quedó habilitado con el toque (iOS)
-
-// Segundo del video en el que arranca la música
-const MUSIC_START_AT = 5;
+let musicStarted = false;       // la música ya suena con volumen (primer toque)
 
 // Inicializar cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
@@ -114,31 +110,32 @@ function initializeIntro() {
     let started = false;
     let finished = false;
 
+    // La canción arranca en silencio desde que abre la página (como hacía
+    // YouTube): así ya está cargada y el primer toque solo le quita el mute.
+    primeMusic();
+
     const start = () => {
         if (started) return;
         started = true;
+
+        // 1) LO PRIMERO dentro del toque: la música suena. Safari solo
+        //    permite sonido si ocurre en este mismo instante.
+        startMusicNow();
+
         intro.classList.add('is-playing');
         intro.setAttribute('aria-label', 'Abriendo la invitación');
 
-        // Habilitar la música DENTRO del toque (requisito de iOS Safari)
-        unlockMusic();
-
-        video.muted = false;
+        // 2) El sobre corre sin sonido para no competir con la canción
+        //    (en iPhone dos audios a la vez se pausan entre sí).
+        video.muted = true;
         const p = video.play();
-        if (p && p.catch) {
-            p.catch(() => {
-                // Si el video no se puede reproducir con sonido, se intenta en silencio;
-                // si tampoco, se entra directo a la invitación con la música.
-                video.muted = true;
-                video.play().catch(() => { startMusic(); finish(); });
-            });
-        }
+        if (p && p.catch) p.catch(() => finish());
     };
 
     const finish = () => {
         if (finished) return;
         finished = true;
-        startMusic(); // por si el video duró menos de 5 s o falló
+        if (!isPlaying) showMusicHint(); // por si el navegador bloqueó el sonido
         revealInvitation();
     };
 
@@ -147,9 +144,6 @@ function initializeIntro() {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); start(); }
     });
 
-    video.addEventListener('timeupdate', () => {
-        if (!musicStarted && video.currentTime >= MUSIC_START_AT) startMusic();
-    });
     video.addEventListener('ended', finish);
     video.addEventListener('error', () => { if (started) finish(); });
 
@@ -246,37 +240,33 @@ function getMusic() { return document.getElementById('bgMusic'); }
 
 // Se llama dentro del toque: deja el audio "autorizado" para que luego,
 // en el segundo 5, pueda sonar sin otro toque (iOS lo exige).
-function unlockMusic() {
+// Intenta reproducir la canción en silencio desde que carga la página para
+// que esté lista. Algunos navegadores no lo permiten sin un toque; no pasa
+// nada: lo que garantiza el sonido es startMusicNow() dentro del primer toque.
+function primeMusic() {
     const music = getMusic();
-    if (!music || musicUnlocked) return;
-    musicUnlocked = true;
-    // Safari solo da permiso de SONIDO si play() se llama CON sonido dentro
-    // del toque. Un play() en silencio (muted) no cuenta: por eso antes la
-    // música no sonaba en el segundo 5. Se da play con sonido y se pausa al
-    // instante; el elemento queda autorizado para sonar después sin otro toque.
-    music.muted = false;
+    if (!music) return;
+    music.muted = true;
     try {
         const p = music.play();
-        music.pause();
         if (p && p.catch) p.catch(() => {});
-    } catch (e) { /* sin audio */ }
-    try { music.currentTime = 0; } catch (e) {}
+    } catch (e) {}
 }
 
-function startMusic() {
+// Se llama DENTRO del primer toque (el sello): quita el silencio y pone la
+// canción desde el inicio. Todo ocurre en el mismo instante del toque.
+function startMusicNow() {
     const music = getMusic();
-    if (!music || musicStarted) return;
+    if (!music) return;
     musicStarted = true;
     try { music.currentTime = 0; } catch (e) {}
     music.muted = false;
-    fadeInVolume(music, 1800);
+    music.volume = 1;
     const p = music.play();
     isPlaying = true;
     updateMusicIcon();
     if (p && p.catch) {
         p.catch(() => {
-            // El navegador no dejó sonar: se muestra el botón de música
-            // de inmediato para que el invitado la active con un toque.
             isPlaying = false;
             updateMusicIcon();
             showMusicHint();
