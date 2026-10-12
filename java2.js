@@ -336,13 +336,15 @@ function showToast(title, message) {
    públicas por diseño; la seguridad está en el SQL
    (supabase-mesa-de-regalos.sql): los invitados solo pueden
    ver qué regalos están tomados y reservar uno libre, nunca
-   leer nombres ni borrar reservas.
+   borrar ni cambiar reservas.
 
    Mientras estén vacías, la mesa funciona en MODO DE PRUEBA
    (las reservas solo se guardan en el dispositivo).
    ========================================================= */
-const SUPABASE_URL = '';        // ej.: 'https://abcdxyz.supabase.co'
-const SUPABASE_PUBLIC_KEY = ''; // ej.: 'sb_publishable_...' o 'eyJhbGci...'
+const SUPABASE_URL = 'https://nsujtmfmyoeibbvwkzez.supabase.co'; // proyecto "Invitavale"
+const SUPABASE_PUBLIC_KEY = 'sb_publishable_vngm39TRXt50jchjL2_gGQ_kZIl_n_P';
+// Nombre de este evento dentro del proyecto (el mismo proyecto sirve para otras invitaciones)
+const GIFT_EVENT = 'boda-rosanna-heriberto';
 
 // Lista de regalos. Los "id" deben coincidir con los del archivo SQL.
 const GIFT_CATALOG = [
@@ -428,18 +430,18 @@ async function supabaseRpc(fn, body) {
 
 async function fetchClaimedGifts() {
     if (GIFT_DEMO) return lsGet(LS_DEMO);
-    const data = await supabaseRpc('get_claimed_gifts');
+    const data = await supabaseRpc('get_claimed_gifts', { p_event: GIFT_EVENT });
     return Array.isArray(data) ? data : [];
 }
 
-async function claimGiftRequest(id, name) {
+async function claimGiftRequest(id) {
     if (GIFT_DEMO) {
         const list = lsGet(LS_DEMO);
         if (list.includes(id)) return { ok: false, reason: 'taken' };
         list.push(id); lsSet(LS_DEMO, list);
         return { ok: true };
     }
-    return supabaseRpc('claim_gift', { p_item_id: id, p_guest_name: name });
+    return supabaseRpc('claim_gift', { p_event: GIFT_EVENT, p_item_id: id });
 }
 
 function giftName(id) {
@@ -502,6 +504,7 @@ function initializeGifts() {
     document.getElementById('claimCancel').addEventListener('click', closeClaim);
     document.getElementById('claimSheet').addEventListener('click', (e) => { if (e.target.id === 'claimSheet') closeClaim(); });
     document.getElementById('claimForm').addEventListener('submit', submitClaim);
+    document.getElementById('claimOk').addEventListener('click', closeClaim);
 
     renderGifts();
 }
@@ -597,11 +600,12 @@ function openClaim(id) {
     giftState.pending = id;
     document.getElementById('claimItem').textContent = giftName(id);
     const err = document.getElementById('claimError'); err.hidden = true; err.textContent = '';
-    const sheet = document.getElementById('claimSheet');
-    sheet.hidden = false;
-    const input = document.getElementById('claimName');
-    try { input.value = localStorage.getItem('mesaRegalos.name') || ''; } catch (e) {}
-    setTimeout(() => input.focus(), 50);
+    document.getElementById('claimAsk').hidden = false;
+    document.getElementById('claimDone').hidden = true;
+    document.getElementById('claimSubmit').hidden = false;
+    document.getElementById('claimCancel').textContent = 'Cancelar';
+    document.getElementById('claimSheet').hidden = false;
+    setTimeout(() => document.getElementById('claimSubmit').focus(), 50);
 }
 
 function closeClaim() {
@@ -612,28 +616,28 @@ function closeClaim() {
 async function submitClaim(e) {
     e.preventDefault();
     const id = giftState.pending;
-    const input = document.getElementById('claimName');
+    if (!id) return;
     const err = document.getElementById('claimError');
     const btn = document.getElementById('claimSubmit');
-    const name = input.value.trim().replace(/\s+/g, ' ');
-    if (name.length < 2) {
-        err.textContent = 'Por favor, escriba su nombre para reservar el regalo.';
-        err.hidden = false; input.focus(); return;
-    }
-    btn.disabled = true; btn.textContent = 'Reservando…'; err.hidden = true;
+    btn.disabled = true; btn.textContent = 'Confirmando…'; err.hidden = true;
     try {
-        const r = await claimGiftRequest(id, name);
+        const r = await claimGiftRequest(id);
         if (r && r.ok) {
             giftState.claimed.add(id);
             giftState.mine.add(id); lsSet(LS_MINE, Array.from(giftState.mine));
-            try { localStorage.setItem('mesaRegalos.name', name); } catch (er) {}
-            closeClaim(); renderGifts();
-            showToast('¡Muchas gracias!', `${giftName(id)} quedó reservado a nombre de ${name}.`);
+            renderGifts();
+            document.getElementById('claimDoneItem').textContent = giftName(id).toLowerCase();
+            document.getElementById('claimAsk').hidden = true;
+            document.getElementById('claimDone').hidden = false;
+            document.getElementById('claimOk').focus();
         } else if (r && r.reason === 'taken') {
-            err.textContent = 'Lo sentimos, este regalo acaba de ser reservado por otro invitado. Por favor, elija otro.';
+            err.textContent = 'Lo sentimos, este regalo acaba de ser elegido por otro invitado. Por favor, elija otro.';
             err.hidden = false; refreshGifts();
+            btn.hidden = true;
+            const cancel = document.getElementById('claimCancel');
+            cancel.textContent = 'Elegir otro'; cancel.focus();
         } else {
-            err.textContent = 'No fue posible completar la reserva. Por favor, intente de nuevo.';
+            err.textContent = 'No fue posible confirmar el regalo. Por favor, intente de nuevo.';
             err.hidden = false;
         }
     } catch (ex) {
